@@ -1,0 +1,21 @@
+health:
+  interval: 1s
+stream:
+  host: rtmp://localhost:1935/distributary
+  latency: 1s
+  file: distributary.flv
+  preset: veryfast
+  bitrate: 4500k
+  framerate: 30
+  keyframe: 2
+providers:
+  - name: Twitch
+    secret: secret
+    ingests:
+      - rtmp://jfk.contribute.live-video.net/app
+      - rtmp://jfk50.contribute.live-video.net/app
+  - name: YouTube
+    secret: secret
+    ingests:
+      - rtmp://a.rtmp.youtube.com/live2
+      - rtmp://b.rtmp.youtube.com/live2
