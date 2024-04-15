@@ -1,13 +1,17 @@
 health:
   interval: 1s
 stream:
-  host: rtmp://localhost:1935/distributary
+  host: rtmp://127.0.0.1:1935/distributary/stream
   latency: 1s
-  file: distributary.flv
-  preset: veryfast
-  bitrate: 4500k
-  framerate: 30
-  keyframe: 2
+  file: distributary.mkv
+  video:
+    codec: libx264
+    bitrate: 6000k
+    framerate: 30
+    keyframe: 2
+  audio:
+    codec: aac
+    bitrate: 128k
 providers:
   - name: Twitch
     secret: secret
@@ -19,3 +23,6 @@ providers:
     ingests:
       - rtmp://a.rtmp.youtube.com/live2
       - rtmp://b.rtmp.youtube.com/live2
+experimental:
+  dummy: true
+  autoDetect: false

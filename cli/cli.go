@@ -1,15 +1,28 @@
 package cli
 
 import (
-	stream "distributary/internal/stream"
+	"bufio"
+	"distributary/cli/format"
+	"distributary/cli/format/table"
+	"distributary/cli/format/table/cell"
+	"distributary/internal/stream"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+	"strconv"
 	"time"
 )
 
-func Command() {
+func Command(release string) {
+	fmt.Println(release)
+	fmt.Println()
+
+	err := CheckRequirements()
+	if err != nil {
+		log.Fatalf("Distributary: checking requirements: %v", err)
+	}
+
 	data, err := os.ReadFile("distributary.yaml")
 	if err != nil {
 		log.Fatalf("Distributary: reading config: %v", err)
@@ -21,9 +34,23 @@ func Command() {
 		log.Fatalf("Distributary: unmarshalling config: %v", err)
 	}
 
+	if cfg.Experimental.Dummy {
+		fmt.Println(fmt.Sprintf("%sDummy processes are enabled!%s", format.Colors.Yellow, format.Colors.Reset))
+	}
+
 	listener := stream.Listener{
-		Url:         cfg.Listener.Host,
-		Destination: cfg.Listener.File,
+		Url:         cfg.Stream.Host,
+		Destination: cfg.Stream.File,
+		Video: stream.Video{
+			Codec:     cfg.Stream.Video.Codec,
+			BitRate:   cfg.Stream.Video.BitRate,
+			FrameRate: cfg.Stream.Video.FrameRate,
+			KeyFrame:  cfg.Stream.Video.KeyFrame,
+		},
+		Audio: stream.Audio{
+			Codec:   cfg.Stream.Audio.Codec,
+			BitRate: cfg.Stream.Audio.BitRate,
+		},
 	}
 
 	err = listener.Init()
@@ -32,22 +59,46 @@ func Command() {
 	}
 
 	listener.Streaming = false
-	listener.WaitForStream()
+	fmt.Println(fmt.Sprintf("Listening for stream @ %s%s%s", format.Colors.Cyan, cfg.Stream.Host, format.Colors.Reset))
 
-	fmt.Println("Get ready, you're live in 5...")
-	time.Sleep(5 * time.Second)
-	var activeProviders []*stream.Provider
+	switch cfg.Experimental.AutoDetect {
+	case true:
+		listener.WaitForStream()
+	case false:
+		fmt.Println(fmt.Sprintf("Press %sEnter%s when OBS is streaming...", format.Colors.Green, format.Colors.Reset))
+		_, err := bufio.NewReader(os.Stdin).ReadByte()
+		if err != nil {
+			log.Fatalf("Distributary: pressing enter: %v", err)
+		}
+		listener.Streaming = true
+	}
+
+	for countdown := 5; countdown > 0; countdown-- {
+		fmt.Print(fmt.Sprintf("\rYou're %slive%s in %d...", format.Colors.Red, format.Colors.Reset, countdown))
+		time.Sleep(time.Second)
+	}
+	fmt.Print("\n")
+
+	var providers []*stream.Provider
 
 	for _, provider := range cfg.Providers {
 		p := stream.Provider{
-			Name:      provider.Name,
-			Ingests:   provider.Ingests,
-			Source:    cfg.Listener.File,
-			Latency:   cfg.Listener.Latency,
-			Preset:    cfg.Listener.Preset,
-			Bitrate:   cfg.Listener.BitRate,
-			Framerate: cfg.Listener.FrameRate,
-			Keyframe:  cfg.Listener.KeyFrame,
+			Dummy:   cfg.Experimental.Dummy,
+			Name:    provider.Name,
+			Ingests: provider.Ingests,
+			Secret:  provider.Secret,
+			Source:  cfg.Stream.File,
+			Video: stream.Video{
+				Codec:     cfg.Stream.Video.Codec,
+				BitRate:   cfg.Stream.Video.BitRate,
+				FrameRate: cfg.Stream.Video.FrameRate,
+				KeyFrame:  cfg.Stream.Video.KeyFrame,
+			},
+			Audio: stream.Audio{
+				Codec:   cfg.Stream.Audio.Codec,
+				BitRate: cfg.Stream.Audio.BitRate,
+			},
+			Latency: cfg.Stream.Latency,
 		}
 
 		err = p.Init(0)
@@ -55,19 +106,30 @@ func Command() {
 			log.Fatalf("Distributary: streaming to provider: %v", err)
 		}
 
-		activeProviders = append(activeProviders, &p)
+		providers = append(providers, &p)
 	}
+
 	for listener.Streaming {
-		update := "\033[K"
-		update += listener.Process.HealthCheck()
+		format.Clear()
 
-		for _, provider := range activeProviders {
-			update += provider.Process.HealthCheck()
-		}
-		update += "\r"
-		fmt.Print(update)
+		fmt.Println(fmt.Sprintf("%s%s%s", format.Colors.Cyan, "Distributary", format.Colors.Reset))
+		fmt.Println()
+		fmt.Println(fmt.Sprintf("You are %s%s%s!", format.Colors.Red, "LIVE", format.Colors.Reset))
+		fmt.Println()
+		fmt.Println()
+		display := table.New(
+			[]table.Initializer{
+				{Header: "Provider", Style: cell.Style{Color: format.Colors.Purple}},
+				{Header: "Status", Style: cell.Style{Color: format.Colors.Green}},
+				{Header: "PID", Style: cell.Style{Color: format.Colors.White}},
+			},
+		)
 
-		for _, p := range activeProviders {
+		for _, p := range providers {
+			display.AddRow([]string{
+				p.Name,
+				fmt.Sprintf("%s (%ds)", "Active", int(time.Since(p.Process.StartTime).Seconds())),
+				strconv.Itoa(p.Process.Cmd.Process.Pid)})
 			if !p.Process.Active {
 				err = p.Init(p.Failover())
 				if err != nil {
@@ -76,13 +138,15 @@ func Command() {
 			}
 		}
 
+		display.Format()
+		display.Print()
 		listener.CheckForEnd()
 		time.Sleep(cfg.Health.Interval)
 	}
 
 	fmt.Println("\nStream ended.")
 
-	for _, provider := range activeProviders {
+	for _, provider := range providers {
 		if provider.Process.Active {
 			err = provider.Process.Stop()
 			if err != nil {
