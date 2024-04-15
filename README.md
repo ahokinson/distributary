@@ -4,11 +4,13 @@ Distributary is designed to simplify the restreaming process from OBS (Open Broa
 
 ## Features
 
-- **Multi-platform Restreaming**: Distribute your stream to multiple platforms simultaneously, including Twitch, YouTube, and anything supporting RTMP.
+- **Multi-platform Restreaming**: Distribute your stream to multiple platforms simultaneously.
 - **Easy Setup**: Simple configuration process to connect Distributary with your OBS and streaming accounts.
 - **Customizable Settings**: Customize streaming settings, ensuring optimal performance and quality.
 - **Automatic Failover**: In the event of a connection failure or platform outage, Distributary automatically switches to a backup platform to ensure uninterrupted streaming.
 - **Simple Interface**: One-click interface designed for both beginners and experienced streamers alike.
+
+## [Supported Platforms](SUPPORT.md)
 
 ## Getting Started
 

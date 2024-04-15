@@ -1,0 +1,32 @@
+version: '3'
+tasks:
+  build-all:
+    cmds:
+      - task clean
+      - task build-darwin
+      - task build-linux
+      - task build-windows
+  clean:
+    cmds:
+      - rm -r build/dist
+  build-darwin:
+    cmds:
+      - mkdir -p build/darwin build/dist
+      - GOARCH=amd64 GOOS=darwin go build -o build/darwin/distributary main.go
+      - cp build/distributary.yaml.example build/darwin/distributary.yaml && mkdir -p build/darwin/logs
+      - cd build/darwin && zip -r ../dist/darwin.zip . && cd ../..
+      - rm -r build/darwin
+  build-linux:
+    cmds:
+      - mkdir -p build/linux build/dist
+      - GOARCH=amd64 GOOS=linux go build -o build/linux/distributary main.go
+      - cp build/distributary.yaml.example build/linux/distributary.yaml && mkdir -p build/linux/logs
+      - cd build/linux && zip -r ../dist/linux.zip . && cd ../..
+      - rm -r build/linux
+  build-windows:
+    cmds:
+      - mkdir -p build/windows build/dist
+      - GOARCH=amd64 GOOS=windows go build -o build/windows/distributary.exe main.go
+      - cp build/distributary.yaml.example build/windows/distributary.yaml && mkdir -p build/windows/logs
+      - cd build/windows && zip -r ../dist/windows.zip . && cd ../..
+      - rm -r build/windows
